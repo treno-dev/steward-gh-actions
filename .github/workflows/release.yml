@@ -1,0 +1,54 @@
+name: Release
+
+# Builds the actions and tags a commit that holds the build, which is not on main: callers use the actions at a tag, and
+# a tag gives them the files of its commit. It tags the version (v1.2.3) and moves the major tag (v1) to it.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version from package.json
+        run: |
+          version=$(jq --raw-output .version package.json)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::$version in package.json is not a version such as 1.2.3"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Tag the build
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout --detach
+          git add --force actions/*/dist
+          git commit --message "Release v$VERSION"
+
+          # Releasing a version again replaces its tag, so a fixed build can be released under the same version.
+          git tag --force "v$VERSION"
+          git tag --force "v${VERSION%%.*}"
+          git push --force origin "v$VERSION" "v${VERSION%%.*}"
+
+      - name: Create or update the release
+        run: |
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            gh release edit "v$VERSION" --verify-tag --notes "Release v$VERSION"
+          else
+            gh release create "v$VERSION" --verify-tag --generate-notes
+          fi

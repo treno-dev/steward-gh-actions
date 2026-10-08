@@ -1,0 +1,28 @@
+name: Publish plugin
+description: Zips the docs of a plugin and sends them to the Steward registry with the OIDC token of the job.
+
+inputs:
+  plugin-id:
+    description: The id of the plugin in the registry
+    required: true
+  docs:
+    description: The folder with the markdown pages of the docs
+    default: docs
+  registry:
+    description: The address of the registry
+    default: https://steward.treno.dev/registry
+  audience:
+    description: What the OIDC token is for, which the registry checks
+    default: https://steward.treno.dev
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+
+    - shell: bash
+      env:
+        INPUTS: ${{ toJSON(inputs) }}
+      run: node "${{ github.action_path }}/dist/index.js" plugin publish
