@@ -1,0 +1,81 @@
+name: Publish plugin
+
+# Publishes the docs of a plugin to the Steward registry when a tag `v<version>` is pushed. The job proves where it runs
+# with the OIDC token that GitHub issues for it, so it needs no secret. The calling job must allow `id-token: write`.
+on:
+  workflow_call:
+    inputs:
+      pluginId:
+        description: The id of the plugin in the registry
+        type: string
+        required: true
+      docs:
+        description: The folder with the markdown pages of the docs
+        type: string
+        default: docs
+      registry:
+        description: The address of the registry
+        type: string
+        default: https://steward.treno.dev/registry
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PLUGIN_ID: ${{ inputs.pluginId }}
+      DOCS: ${{ inputs.docs }}
+      REGISTRY: ${{ inputs.registry }}
+      AUDIENCE: https://steward.treno.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Zip the docs
+        run: |
+          set -euo pipefail
+
+          if [ "$GITHUB_REF_TYPE" != "tag" ] || [[ "$GITHUB_REF_NAME" != v* ]]; then
+            echo "::error::Publish from a tag named v<version>, not from $GITHUB_REF"
+            exit 1
+          fi
+
+          cd "$DOCS"
+          zip --recurse-paths --quiet --no-dir-entries "$RUNNER_TEMP/docs.zip" . --include '*.md'
+
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          echo "SIZE=$(stat --format=%s "$RUNNER_TEMP/docs.zip")" >> "$GITHUB_ENV"
+          echo "SHA256=$(sha256sum "$RUNNER_TEMP/docs.zip" | cut --delimiter=' ' --fields=1)" >> "$GITHUB_ENV"
+
+      - name: Publish the zip
+        run: |
+          set -euo pipefail
+
+          token=$(curl --silent --show-error --fail-with-body \
+            --header "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUDIENCE" | jq --raw-output .value)
+          echo "::add-mask::$token"
+
+          announcement=$(jq --null-input --compact-output \
+            --arg version "$VERSION" --argjson size "$SIZE" --arg sha256 "$SHA256" \
+            '{version: $version, size: $size, sha256: $sha256}')
+
+          call() {
+            curl --silent --show-error --fail-with-body \
+              --header "Authorization: Bearer $token" --header 'Content-Type: application/json' "$@"
+          }
+
+          upload=$(call --data "$announcement" "$REGISTRY/plugins/$PLUGIN_ID/uploads" | jq --raw-output .url)
+
+          curl --silent --show-error --fail-with-body --header 'Expect:' \
+            --upload-file "$RUNNER_TEMP/docs.zip" "$upload"
+
+          publication=$(call --data "$announcement" "$REGISTRY/plugins/$PLUGIN_ID/versions" | jq --raw-output .ulid)
+
+          # The worker processes the zip after this job is done: the status is where its outcome is read.
+          status="$REGISTRY/plugins/$PLUGIN_ID/publications/$publication"
+
+          echo "Sent $VERSION to the registry. Status: $status"
+          echo "Sent $VERSION to the registry. [Status]($status)" >> "$GITHUB_STEP_SUMMARY"
