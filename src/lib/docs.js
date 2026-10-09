@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 
@@ -38,7 +37,7 @@ function truncate(path, content) {
   return Buffer.concat([content.subarray(0, end), TRUNCATED_NOTE])
 }
 
-/** The zip of the markdown pages in the folder, with its size and its sha256, which the registry asks for. */
+/** The zip of the markdown pages in the folder, with its size, which the registry asks for. */
 export async function zipDocs(folder) {
   const paths = await pagePaths(folder)
 
@@ -61,6 +60,5 @@ export async function zipDocs(folder) {
     content,
     pages: paths.length,
     size: content.length,
-    sha256: createHash('sha256').update(content).digest('hex'),
   }
 }

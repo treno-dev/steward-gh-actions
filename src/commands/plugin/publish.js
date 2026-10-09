@@ -28,20 +28,31 @@ async function publish() {
 
   const zip = await zipDocs(docs)
 
-  core.info(`Zipped ${zip.pages} pages from ${docs}: ${zip.size} bytes, sha256 ${zip.sha256}`)
+  core.info(`Zipped ${zip.pages} pages from ${docs}: ${zip.size} bytes`)
 
   core.info(`Asking GitHub for an OIDC token for ${audience}`)
 
   const registry = new Registry(address, pluginId, await core.getIDToken(audience))
-  const announcement = { version, size: zip.size, sha256: zip.sha256 }
+  const announcement = { version, size: zip.size }
 
   core.info('Announcing the zip to the registry')
 
-  const { url } = await registry.begin(announcement)
+  const begun = await registry.begin(announcement)
+
+  // The registry knows the commit of the job from its token. A version that it has published from this commit is
+  // published again by a re-run, which is no error and sends nothing. Another commit is refused by the registry.
+  if (begun.published) {
+    const status = registry.status(begun.publication)
+
+    core.info(`Version ${version} is published already from this commit, so there is nothing to send. Status: ${status}`)
+    await core.summary.addRaw(`Version ${version} is published already from this commit. [Status](${status})`).write()
+
+    return
+  }
 
   core.info('The registry accepted the announcement and gave an upload URL. Uploading the zip')
 
-  await registry.upload(url, zip.content)
+  await registry.upload(begun.url, zip.content)
 
   core.info('Uploaded. Asking the registry to process the zip')
 
