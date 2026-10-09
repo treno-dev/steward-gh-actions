@@ -49,7 +49,10 @@ export async function zipDocs(folder) {
   const zip = new AdmZip()
 
   for (const path of paths) {
-    zip.addFile(path, truncate(path, await readFile(join(folder, path))))
+    const page = truncate(path, await readFile(join(folder, path)))
+
+    core.info(`  ${path} (${page.length} bytes)`)
+    zip.addFile(path, page)
   }
 
   const content = zip.toBuffer()

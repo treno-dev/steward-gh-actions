@@ -23,20 +23,33 @@ async function publish() {
   }
 
   const version = versionFromTag()
+
+  core.info(`Publishing version ${version} of plugin ${pluginId} to ${address}`)
+
   const zip = await zipDocs(docs)
 
-  core.info(`Zipped ${zip.pages} pages of ${version}: ${zip.size} bytes`)
+  core.info(`Zipped ${zip.pages} pages from ${docs}: ${zip.size} bytes, sha256 ${zip.sha256}`)
+
+  core.info(`Asking GitHub for an OIDC token for ${audience}`)
 
   const registry = new Registry(address, pluginId, await core.getIDToken(audience))
   const announcement = { version, size: zip.size, sha256: zip.sha256 }
 
+  core.info('Announcing the zip to the registry')
+
   const { url } = await registry.begin(announcement)
+
+  core.info('The registry accepted the announcement and gave an upload URL. Uploading the zip')
+
   await registry.upload(url, zip.content)
 
-  // The worker processes the zip after this job is done: the status is where its outcome is read.
-  const status = registry.status(await registry.finish(announcement))
+  core.info('Uploaded. Asking the registry to process the zip')
 
-  core.info(`Sent ${version} to the registry. Status: ${status}`)
+  // The worker processes the zip after this job is done: the status is where its outcome is read.
+  const publication = await registry.finish(announcement)
+  const status = registry.status(publication)
+
+  core.info(`The registry queued publication ${publication.ulid} (${publication.state}). Status: ${status}`)
   await core.summary.addRaw(`Sent ${version} to the registry. [Status](${status})`).write()
 }
 
