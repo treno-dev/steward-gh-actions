@@ -1,8 +1,9 @@
 name: Release plugin
 
 # Builds the bundle of a Go plugin for each platform and attaches them to the GitHub release of the tag `v<version>`, with the
-# checksums of the zips. A bundle is a zip with `steward.json` and the executable (ADR 003). The runner of an integration fetches
-# the zip of its own platform from the release. The calling job must allow `contents: write`.
+# checksums of the zips, and then publishes the release. A bundle is a zip with `steward.json` and the executable (ADR 003).
+# The runner of an integration fetches the zip of its own platform from the release. The calling job must allow
+# `contents: write`.
 on:
   workflow_call:
     inputs:
@@ -17,46 +18,9 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v7
+      - uses: treno-dev/steward-gh-actions/actions/release-plugin@v1
         with:
-          go-version-file: go.mod
-
-      - name: Build a bundle for each platform
-        env:
-          ENTRYPOINT: ${{ inputs.entrypoint }}
-        run: |
-          repository="${GITHUB_REPOSITORY#*/}"
-          name="${repository#steward-plugin-}"
-          version="${GITHUB_REF_NAME#v}"
-
-          mkdir -p dist
-
-          for platform in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
-            os="${platform%/*}"
-            arch="${platform#*/}"
-            executable="$ENTRYPOINT"
-            [[ "$os" == "windows" ]] && executable="$ENTRYPOINT.exe"
-
-            folder="dist/${os}_${arch}"
-            mkdir -p "$folder"
-
-            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags "-s -w" -o "$folder/$executable" .
-
-            jq --null-input \
-              --arg name "$name" --arg version "$version" --arg entrypoint "$executable" \
-              '{name: $name, version: $version, protoVersion: 1, runtime: "binary", entrypoint: $entrypoint}' > "$folder/steward.json"
-
-            (cd "$folder" && zip --quiet --recurse-paths "../${repository}_${os}_${arch}.zip" .)
-          done
-
-          (cd dist && sha256sum ./*.zip > SHA256SUMS)
-
-      - name: Attach the bundles to the release
-        run: |
-          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
-          gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS --clobber
+          entrypoint: ${{ inputs.entrypoint }}

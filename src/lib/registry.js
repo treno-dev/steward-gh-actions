@@ -27,7 +27,7 @@ function isTransient(error) {
 // Each call is made up to five times, waiting 1s, 2s, 4s and 8s at most, each spread by jitter so that jobs that failed
 // together do not call together. Every call of the registry is safe to make again: announcing gives the same upload
 // URL, uploading writes the same object, and finishing finds the publication that it recorded.
-function retrying(what) {
+export function retrying(what) {
   return {
     retries: 4,
     factor: 2,

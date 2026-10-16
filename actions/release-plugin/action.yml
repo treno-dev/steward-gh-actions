@@ -1,0 +1,26 @@
+name: Release plugin
+description: Builds the bundle of a Go plugin for each platform and attaches them to the GitHub release of the tag, with the checksums of the zips.
+
+inputs:
+  entrypoint:
+    description: The name of the executable inside the bundle
+    default: plugin
+  token:
+    description: The token that makes the release, which needs `contents` write access
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 24
+
+    - shell: bash
+      env:
+        INPUTS: ${{ toJSON(inputs) }}
+      run: node "${{ github.action_path }}/dist/index.js" plugin release

@@ -3,17 +3,7 @@ import * as core from '@actions/core'
 import { zipDocs } from '@/lib/docs.js'
 import { inputs } from '@/lib/inputs.js'
 import { Registry } from '@/lib/registry.js'
-
-/** What the job was started by must be a push of the tag `v<version>`: the registry checks it against the token too. */
-function versionFromTag() {
-  const { GITHUB_REF_TYPE: type, GITHUB_REF_NAME: name = '' } = process.env
-
-  if (type !== 'tag' || !name.startsWith('v')) {
-    throw new Error(`Publish from a tag named v<version>, not from ${process.env.GITHUB_REF}`)
-  }
-
-  return name.slice(1)
-}
+import { versionFromTag } from '@/lib/tag.js'
 
 async function publish() {
   const { 'plugin-id': pluginId, docs, registry: address, audience } = inputs()
@@ -22,7 +12,8 @@ async function publish() {
     throw new Error('The plugin-id input is required')
   }
 
-  const version = versionFromTag()
+  // The registry checks the tag against the token too.
+  const { version } = versionFromTag()
 
   core.info(`Publishing version ${version} of plugin ${pluginId} to ${address}`)
 
