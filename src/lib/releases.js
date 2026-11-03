@@ -5,7 +5,7 @@ import { HttpClient, HttpClientError } from '@actions/http-client'
 import { BearerCredentialHandler } from '@actions/http-client/lib/auth'
 import pRetry from 'p-retry'
 
-import { retrying } from '@/lib/registry.js'
+import { retrying } from '@/lib/steward.js'
 
 const API = 'https://api.github.com'
 const UPLOADS = 'https://uploads.github.com'

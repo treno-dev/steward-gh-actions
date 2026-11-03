@@ -1,18 +1,18 @@
 name: Publish plugin
-description: Zips the docs of a plugin and sends them to the Steward registry with the OIDC token of the job.
+description: Zips the docs of a plugin and sends them to Steward with the OIDC token of the job.
 
 inputs:
   plugin-id:
-    description: The id of the plugin in the registry
+    description: The id of the plugin in Steward
     required: true
   docs:
     description: The folder with the markdown pages of the docs
     default: docs
-  registry:
-    description: The address of the registry
-    default: https://steward.treno.dev/registry
+  steward:
+    description: The address of Steward
+    default: https://steward.treno.dev
   audience:
-    description: What the OIDC token is for, which the registry checks
+    description: What the OIDC token is for, which Steward checks
     default: https://steward.treno.dev
 
 runs:

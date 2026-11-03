@@ -1,22 +1,22 @@
 name: Publish plugin
 
-# Publishes the docs of a plugin to the Steward registry when a tag `v<version>` is pushed. The job proves where it runs
+# Publishes the docs of a plugin to Steward when a tag `v<version>` is pushed. The job proves where it runs
 # with the OIDC token that GitHub issues for it, so it needs no secret. The calling job must allow `id-token: write`.
 on:
   workflow_call:
     inputs:
       pluginId:
-        description: The id of the plugin in the registry
+        description: The id of the plugin in Steward
         type: string
         required: true
       docs:
         description: The folder with the markdown pages of the docs
         type: string
         default: docs
-      registry:
-        description: The address of the registry
+      steward:
+        description: The address of Steward
         type: string
-        default: https://steward.treno.dev/registry
+        default: https://steward.treno.dev
 
 jobs:
   publish:
@@ -32,4 +32,4 @@ jobs:
         with:
           plugin-id: ${{ inputs.pluginId }}
           docs: ${{ inputs.docs }}
-          registry: ${{ inputs.registry }}
+          steward: ${{ inputs.steward }}

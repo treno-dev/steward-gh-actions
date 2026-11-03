@@ -37,7 +37,7 @@ function truncate(path, content) {
   return Buffer.concat([content.subarray(0, end), TRUNCATED_NOTE])
 }
 
-/** The zip of the markdown pages in the folder, with its size, which the registry asks for. */
+/** The zip of the markdown pages in the folder, with its size, which Steward asks for. */
 export async function zipDocs(folder) {
   const paths = await pagePaths(folder)
 
